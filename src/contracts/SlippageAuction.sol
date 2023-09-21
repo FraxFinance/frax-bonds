@@ -87,7 +87,6 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
     // Constructor
     // ==============================================================================
 
-    /// @notice Parameters for creating an auction
     /// @param _timelockAddress Address of the timelock/owner contract
     /// @param _buyToken The token used to buy the sellToken being auctioned off
     /// @param _sellToken The token being auctioned off
@@ -109,7 +108,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         return (1, 0, 0);
     }
 
-    /// @notice Calculate the pre-slippage price from the time decay alone
+    /// @notice The ```getPreSlippagePrice``` function calculates the pre-slippage price from the time decay alone
     /// @param _auction The auction struct
     /// @return _price The price
     function getPreSlippagePrice(Auction memory _auction) public view returns (uint256 _price) {
@@ -120,7 +119,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         if (_price < _auction.minPrice) _price = _auction.minPrice;
     }
 
-    /// @notice The ```getAmountOut``` function calculatesthe amount of sellTokens out for a given buyToken amount
+    /// @notice The ```getAmountOut``` function calculates the amount of sellTokens out for a given buyToken amount
     /// @param _amountIn Amount of buyToken in
     /// @param _revertOnOverAmountLeft Whether to revert if _amountOut > amountLeft
     /// @return _amountOut Amount of sellTokens out
@@ -137,7 +136,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         if (block.timestamp >= _auction.expiry) revert AuctionExpired();
 
         // Calculate the sale price (in buyToken per sellToken), factoring in the time decay
-        uint256 _preSlippagePrice = getPreSlippagePrice(_auction);
+        uint256 _preSlippagePrice = getPreSlippagePrice({ _auction: _auction });
 
         // Calculate the slippage component of the price (in buyToken per sellToken)
         _slippagePerSellToken = (_auction.priceSlippage * _amountIn) / PRECISION;
@@ -155,7 +154,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         _postSlippagePrice = _preSlippagePrice + (2 * _slippagePerSellToken); // Price impact is twice the slippage
     }
 
-    /// @notice Calculate how many buyTokens you would need to buy out the remaining sellTokens in the auction
+    /// @notice The ```getAmountInMax``` function calculates how many buyTokens you would need to buy out the remaining sellTokens in the auction
     /// @return _amountIn Amount of buyToken needed
     /// @return _slippagePerSellToken The slippage component of the price change (in buyToken per sellToken)
     /// @return _postSlippagePrice The post-slippage price from the time decay + slippage
@@ -170,10 +169,10 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         Auction memory _auction = auctions[_auctionNumber];
 
         // Call the internal function with amountLeft
-        return _getAmountIn(_auction, _auction.amountLeft);
+        return _getAmountIn({ _auction: _auction, _desiredOut: _auction.amountLeft });
     }
 
-    /// @notice Calculate how many buyTokens you would need in order to obtain a given number of sellTokens
+    /// @notice The ```getAmountIn``` function calculates how many buyTokens you would need in order to obtain a given number of sellTokens
     /// @param _desiredOut The desired number of sellTokens
     /// @return _amountIn Amount of buyToken needed
     /// @return _slippagePerSellToken The slippage component of the price change (in buyToken per sellToken)
@@ -193,7 +192,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         });
     }
 
-    /// @notice Calculate how many buyTokens you would need to obtain a given number of sellTokens
+    /// @notice The ```_getAmountIn``` function calculate how many buyTokens you would need to obtain a given number of sellTokens
     /// @param _auction The auction struct
     /// @return _amountIn Amount of buyToken needed
     /// @return _slippagePerSellToken The slippage component of the price change (in buyToken per sellToken)
@@ -208,7 +207,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         if (_desiredOut > _auction.amountLeft) revert InsufficientSellTokensAvailable();
 
         // Calculate the sale price (in buyToken per sellToken), factoring in the time decay
-        uint256 _preSlippagePrice = uint256(getPreSlippagePrice(_auction));
+        uint256 _preSlippagePrice = uint256(getPreSlippagePrice({ _auction: _auction }));
 
         // Math in a more readable format:
         // uint256 _numerator = (_desiredOut * _preSlippagePrice) / PRECISION;
@@ -254,7 +253,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         uint32 expiry;
     }
 
-    /// @notice Starts a new auction
+    /// @notice The ```startAuction``` function starts a new auction
     /// @param _params StartAuctionParams
     /// @dev Requires an erc20 allowance on the sellToken prior to calling
     function startAuction(StartAuctionParams memory _params) external nonReentrant returns (uint256 _auctionNumber) {
@@ -298,7 +297,8 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         IERC20(SELL_TOKEN).safeTransferFrom({ from: msg.sender, to: address(this), value: _params.sellAmount });
     }
 
-    /// @notice End the auction. Only callable by the auction owner
+    /// @notice The ```stopAuction``` function ends the auction
+    /// @dev Only callable by the auction owner
     /// @return _buyProceeds Amount of buyToken obtained from the auction
     /// @return _unsoldRemaining Amount of unsold sellTokens left over
     function stopAuction() public nonReentrant returns (uint256 _buyProceeds, uint256 _unsoldRemaining) {
@@ -310,8 +310,8 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         if (_auction.ended) revert AuctionAlreadyExited();
 
         // Set Return params
-        _buyProceeds = uint128(IERC20(BUY_TOKEN).balanceOf(address(this)));
-        _unsoldRemaining = IERC20(SELL_TOKEN).balanceOf(address(this));
+        _buyProceeds = IERC20(BUY_TOKEN).balanceOf({ account: address(this) });
+        _unsoldRemaining = IERC20(SELL_TOKEN).balanceOf({ account: address(this) });
 
         _auction.ended = true;
         _auction.buyTokenProceeds = uint128(_buyProceeds);
@@ -339,8 +339,14 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
     /// @param _buyTokenOut The amount of buyTokens to receive
     /// @param _sellTokenOut The amount of sellTokens to receive
     /// @param _to The recipient of the output tokens
-    /// @param _data Callback data
-    function swap(uint256 _buyTokenOut, uint256 _sellTokenOut, address _to, bytes calldata _data) public nonReentrant {
+    /// @param _callbackData Callback data
+    function swap(
+        uint256 _buyTokenOut,
+        uint256 _sellTokenOut,
+        address _to,
+        bytes calldata _callbackData
+    ) public nonReentrant {
+        if (_buyTokenOut != 0) revert ExcessiveBuyTokenOut({ minOut: 0, actualOut: _buyTokenOut });
         if (_sellTokenOut == 0) revert InsufficientOutputAmount({ minOut: 1, actualOut: 0 });
 
         // Get the auction info (similar to get reserves in univ2)
@@ -351,10 +357,17 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         IERC20(SELL_TOKEN).safeTransfer({ to: _to, value: _sellTokenOut });
 
         // Callback if necessary for flash swap
-        if (_data.length > 0) IUniswapV2Callee(_to).uniswapV2Call(msg.sender, _buyTokenOut, _sellTokenOut, _data);
+        if (_callbackData.length > 0) {
+            IUniswapV2Callee(_to).uniswapV2Call({
+                sender: msg.sender,
+                amount0: _buyTokenOut,
+                amount1: _sellTokenOut,
+                data: _callbackData
+            });
+        }
 
         // Calculate the amount of buyTokens in
-        uint256 _buyTokenBalance = IERC20(BUY_TOKEN).balanceOf(address(this));
+        uint256 _buyTokenBalance = IERC20(BUY_TOKEN).balanceOf({ account: address(this) });
         uint256 _buyTokenIn = _buyTokenBalance - _auction.buyTokenProceeds;
 
         // Adheres to uniswap v2 interface, called here to prevent stack-too-deep error
@@ -413,12 +426,12 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         uint256 _deadline
     ) external returns (uint256[] memory _amounts) {
         if (block.timestamp > _deadline) revert Expired();
-        (uint256 _amountOut, , ) = getAmountOut(_amountIn, true);
+        (uint256 _amountOut, , ) = getAmountOut({ _amountIn: _amountIn, _revertOnOverAmountLeft: true });
         if (_amountOut < _amountOutMin) {
             revert InsufficientOutputAmount({ minOut: _amountOutMin, actualOut: _amountOut });
         }
         IERC20(BUY_TOKEN).safeTransferFrom({ from: msg.sender, to: address(this), value: _amountIn });
-        this.swap(0, _amountOut, _to, new bytes(0));
+        this.swap({ _buyTokenOut: 0, _sellTokenOut: _amountOut, _to: _to, _callbackData: new bytes(0) });
         _amounts[0] = _amountIn;
         _amounts[1] = _amountOut;
     }
@@ -442,7 +455,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         (uint256 _amountIn, , ) = getAmountIn(_amountOut);
         if (_amountIn > _amountInMax) revert ExcessiveInputAmount({ minIn: _amountInMax, actualIn: _amountIn });
         IERC20(BUY_TOKEN).safeTransferFrom({ from: msg.sender, to: address(this), value: _amountIn });
-        this.swap(0, _amountOut, _to, new bytes(0));
+        this.swap({ _buyTokenOut: 0, _sellTokenOut: _amountOut, _to: _to, _callbackData: new bytes(0) });
         _amounts[0] = _amountIn;
         _amounts[1] = _amountOut;
     }
@@ -477,6 +490,9 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
 
     /// @notice The ```InsufficientSellTokensAvailable``` error is emitted when a user attempts to buy more sell tokens than are left in the auction
     error InsufficientSellTokensAvailable();
+
+    /// @notice The ```CannotPurchaseBuyToken``` error is emitted when a user attempts to buy the buyToken using the swap() function
+    error ExcessiveBuyTokenOut(uint256 minOut, uint256 actualOut);
 
     /// @notice The ```Expired``` error is emitted when a user attempts to make a swap after the transaction deadline has passed
     error Expired();
