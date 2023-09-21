@@ -12,7 +12,7 @@ pragma solidity ^0.8.19;
 // ========================= SlippageAuction ==========================
 // ====================================================================
 // Slippage auction to sell tokens over time.  Both tokens must be 18 decimals.
-// It has 3 parameters: // TODO: expand on units information
+// It has 3 parameters:
 // - amount of sell token to auction
 // - slippage per token bought
 // - price decrease per day.
@@ -361,7 +361,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
         emit Swap({
             sender: msg.sender,
             amount0In: _buyTokenIn,
-            amount1In: _sellTokenOut,
+            amount1In: 0,
             amount0Out: _buyTokenOut,
             amount1Out: _sellTokenOut,
             to: _to
@@ -418,7 +418,7 @@ contract SlippageAuction is ReentrancyGuard, Timelock2Step {
             revert InsufficientOutputAmount({ minOut: _amountOutMin, actualOut: _amountOut });
         }
         IERC20(BUY_TOKEN).safeTransferFrom({ from: msg.sender, to: address(this), value: _amountIn });
-        this.swap(_amountOut, 0, _to, new bytes(0));
+        this.swap(0, _amountOut, _to, new bytes(0));
         _amounts[0] = _amountIn;
         _amounts[1] = _amountOut;
     }
