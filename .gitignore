@@ -17,10 +17,6 @@ docs/
 .env.save
 ..env.swp
 
-#lib
-lib/
-lib/*
-
 #code coverage
 coverage/
 coverage/*
