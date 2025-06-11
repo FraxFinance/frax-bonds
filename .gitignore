@@ -3,7 +3,7 @@ cache/
 out/
 
 # Ignores development broadcast logs
-!/broadcast
+run-latest.json
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
@@ -12,11 +12,20 @@ docs/
 
 # Dotenv file
 .env
-.env*
 .env.forge
 .env.test
 .env.save
 ..env.swp
+
+#lib
+lib/
+lib/*
+
+#code coverage
+coverage/
+coverage/*
+/coverage/
+/coverage/*
 
 # Misc
 node_modules
@@ -25,3 +34,4 @@ node_modules
 lcov.info
 report/
 .idea/
+slither_results.md

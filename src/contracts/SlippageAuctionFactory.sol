@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: ISC
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.23;
 
 // ====================================================================
 // |     ______                   _______                             |
@@ -11,78 +11,100 @@ pragma solidity ^0.8.19;
 // ====================================================================
 // ====================== SlippageAuctionFactory ======================
 // ====================================================================
+// Factory contract for SlippageAuctions
 // Frax Finance: https://github.com/FraxFinance
 
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SlippageAuction } from "./SlippageAuction.sol";
 
+/// @title SlippageAuctionFactory
+/// @notice Permission-less factory to create SlippageAuction.sol contracts.
+/// @dev https://github.com/FraxFinance/frax-bonds
 contract SlippageAuctionFactory {
-    /// @notice The auctions created by this factory
-    address[] public auctions;
-
-    /// @notice mapping of hashed constructor arguments to whether or not the auction has been created
-    mapping(bytes32 _constructorHash => bool _isCreated) public isAuction;
-
-    /// @notice The ```createAuction``` function is used to create a new auction
-    /// @dev Tokens must be 18 decimals
-    /// @param _buyToken The token that will be used to purchase tokens in the auction
-    /// @param _sellToken The token that will be sold in the auction
-    /// @return _auctionAddress The address of the new auction
-    function createAuction(address _buyToken, address _sellToken) external returns (address _auctionAddress) {
-        if (IERC20Metadata(_buyToken).decimals() != 18) {
-            revert BuyTokenMustBe18Decimals();
-        }
-        if (IERC20Metadata(_sellToken).decimals() != 18) {
-            revert SellTokenMustBe18Decimals();
-        }
-
-        // Ensure a single sender account can only create a single auction contract given two input tokens
-        bytes32 _hash = keccak256(abi.encodePacked(_buyToken, _sellToken, msg.sender));
-        if (isAuction[_hash]) {
-            revert AuctionAlreadyExists();
-        }
-        isAuction[_hash] = true;
-
-        // Deploy the auction
-        SlippageAuction _auction = new SlippageAuction({
-            _timelockAddress: msg.sender,
-            _buyToken: _buyToken,
-            _sellToken: _sellToken
-        });
-
-        // Set return variable
-        _auctionAddress = address(_auction);
-
-        // Add to auctions array
-        auctions.push(_auctionAddress);
-
-        emit AuctionCreated({ auction: _auctionAddress, buyToken: _buyToken, sellToken: _sellToken });
+    /// @notice Returns the semantic version of this contract
+    /// @return _major The major version
+    /// @return _minor The minor version
+    /// @return _patch The patch version
+    function version() external pure returns (uint256 _major, uint256 _minor, uint256 _patch) {
+        return (1, 0, 0);
     }
 
-    /// @notice The ```getAuctions``` function returns a list of all auctions deployed
-    /// @return memory address[] The list of auctions
+    /// @notice The auctions addresses created by this factory
+    address[] public auctions;
+
+    /// @notice Mapping of auction addresses to whether or not the auction has been created
+    mapping(address auction => bool exists) public isAuction;
+
+    /// @notice Creates a new auction contract
+    /// @dev Tokens must be 18 decimals
+    /// @param _timelock Timelock role for auction
+    /// @param _tokenBuy Token used to purchase `_tokenSell`
+    /// @param _tokenSell Token sold in the auction
+    /// @return auction The address of the new SlippageAuction that was created
+    function createAuctionContract(
+        address _timelock,
+        address _tokenBuy,
+        address _tokenSell
+    ) external returns (address auction) {
+        // Reject if both tokens are not 18 decimals
+        if (IERC20Metadata(_tokenBuy).decimals() != 18) {
+            revert TokenBuyMustBe18Decimals();
+        }
+        if (IERC20Metadata(_tokenSell).decimals() != 18) {
+            revert TokenSellMustBe18Decimals();
+        }
+
+        // Deploy the auction
+        auction = address(new SlippageAuction({ _timelock: _timelock, _tokenBuy: _tokenBuy, _tokenSell: _tokenSell }));
+
+        // Add auction address to mapping
+        isAuction[auction] = true;
+
+        // Add to auctions array
+        auctions.push(auction);
+
+        emit AuctionCreated({ auction: auction, tokenBuy: _tokenBuy, tokenSell: _tokenSell });
+    }
+
+    /// @notice Returns a list of all auction addresses deployed
+    /// @return memory address[] The list of auction addresses
     function getAuctions() external view returns (address[] memory) {
         return auctions;
     }
 
-    /// @notice The ```auctionsLength``` function returns the number of auctions deployed
-    /// @return The length of the auctions array
+    /// @notice Get an auction address by index to save on-chain gas usage from returning the whole auctions array
+    /// @dev Reverts if attempting to return an index greater than the auctions array length
+    /// @param _index Index of auction address to request from the auctions array
+    /// @return auction Address of the specified auction
+    function getAuction(uint256 _index) external view returns (address auction) {
+        // Revert if non-existent
+        if (_index > auctions.length) revert AuctionDoesNotExist();
+
+        // Fetch the auction address by its index
+        auction = auctions[_index];
+    }
+
+    /// @notice Returns the number of auctions deployed
+    /// @return uint256 length of the auctions array
     function auctionsLength() external view returns (uint256) {
         return auctions.length;
     }
 
-    /// @notice The ```AuctionCreated``` event is emitted when a new auction is created
-    /// @param auction The address of the new auction
-    /// @param buyToken The token that will be used to purchase tokens in the auction
-    /// @param sellToken The token that will be sold in the auction
-    event AuctionCreated(address indexed auction, address indexed buyToken, address indexed sellToken);
+    /// @notice Emitted when a new auction is created
+    /// @param auction The address of the new auction contract
+    /// @param tokenBuy Token to purchase `tokenSell`
+    /// @param tokenSell Token sold in the auction
+    event AuctionCreated(address indexed auction, address indexed tokenBuy, address indexed tokenSell);
 
-    /// @notice The ```AuctionAlreadyExists``` error is thrown when an auction with the same sender and tokens has already been created
+    /// @notice Thrown when an auction with the same sender and tokens has already been created
     error AuctionAlreadyExists();
 
-    /// @notice The ```SellTokenMustBe18Decimals``` error is thrown when the sell token is not 18 decimals
-    error SellTokenMustBe18Decimals();
+    /// @notice Thrown when attempting to call `getAuction()` with an index greater than auctions.length
+    error AuctionDoesNotExist();
 
-    /// @notice The ```BuyTokenMustBe18Decimals``` error is thrown when the buy token is not 18 decimals
-    error BuyTokenMustBe18Decimals();
+    /// @notice Thrown when the sell token is not 18 decimals
+    error TokenSellMustBe18Decimals();
+
+    /// @notice Thrown when the buy token is not 18 decimals
+    error TokenBuyMustBe18Decimals();
 }

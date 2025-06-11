@@ -12,8 +12,7 @@
       "options": {
         "bracketSpacing": true,
         "tabWidth": 4,
-        "singleQuote": false,
-        "compiler": ">=0.8.0"
+        "singleQuote": false
       }
     }
   ]

@@ -1,0 +1,12 @@
+FXBFactory: 0x70e3E00095DF0B5F131f4B691a3D105A38Ce5832
+SlippageAuctionFactory: 0x94D4D7a98f3dB4AE0da39ecE78EB40cd84aE6e66
+FXB_0: 0x7d759039fC37eaF849cEB41d85a8E7EC48E2d22d # [block.timestamp + 7 days] (1 week)
+FXB_1: 0x6e78f16dAe5B851b90e302c12D562315aE99f19A # [block.timestamp + 30 days] (1 month)
+FXB_2: 0xa703DeFF78Ad5a9D50bA2EF3314a9ceA97f4fA42 # [block.timestamp + 180 days] (6 months)
+FXB_3: 0x67c3905A9F4632474b4a3B95870181E0e21ad89b # [block.timestamp + 365 days] (1 year)
+FXB_4: 0x792821a237AEdD7756077f396fd7282fdB41d968 # [block.timestamp + 732 days] (2 years)
+SlippageAuction_0: 0x575Be852F0525ABd15398Ecbba76a2cad9ef2462
+SlippageAuction_1: 0x77FBe472DA1cEcC9747d7a40A0172C5426B34b75
+SlippageAuction_2: 0x12875e696C20eB7cA7115581ada76e3703cD9c9E
+SlippageAuction_3: 0xa7cC20968908ea12C17019D029592eaac8761fEA
+SlippageAuction_4: 0x198928C2b01f1809Df9C9373694436b03ed431B6
