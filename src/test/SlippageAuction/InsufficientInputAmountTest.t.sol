@@ -5,7 +5,7 @@ import "../helpers/SwapHelper.sol";
 
 contract InsufficientInputAmountTest is SwapHelper {
     function setUpFraxtal(uint256 _block) public {
-        vm.createSelectFork(vm.envString("FRAXTAL_MAINNET_URL"), _block);
+        vm.createSelectFork("https://rpc.frax.com", _block);
     }
 
     function test_InsufficientInputAmount() public {

@@ -79,7 +79,6 @@ contract FuzzGetAmountInMaxTest is SwapHelper {
             to: buyer2,
             deadline: block.timestamp + 1 days
         });
-        uint256 amountOut2 = amounts[1];
 
         DeltaAccountStorageSnapshot memory delta_buyer2AccountSnapshot = deltaAccountStorageSnapshot(
             initial_buyer2AccountSnapshot

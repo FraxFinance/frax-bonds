@@ -3,7 +3,7 @@ pragma solidity ^0.8.23;
 
 import "frax-std/FraxTest.sol";
 import { deploySlippageAuctionFactory } from "../script/DeploySlippageAuctionFactory.s.sol";
-import { deployFXBFactory, deployFXBFactoryManual } from "../script/DeployFXBFactory.s.sol";
+import { deployFXBFactoryManual } from "../script/DeployFXBFactory.s.sol";
 import { FXB } from "../contracts/FXB.sol";
 import { FXBFactory } from "../contracts/FXBFactory.sol";
 import { SlippageAuction } from "../contracts/SlippageAuction.sol";
@@ -20,8 +20,10 @@ contract BaseTest is FraxTest, Constants.Helper {
     address payable internal tester;
     address payable internal buyer1;
     address payable internal buyer2;
+    address internal owner = Constants.Mainnet.FXB_TIMELOCK;
 
-    address public frax = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
+    address public proxyAdmin = 0x13Fe62cB24aEa5afd179F20D362c056c3881ABcA;
+    address public frax = Constants.Mainnet.FRAX_ERC20;
     IERC20 public iFrax = IERC20(frax);
 
     // Test tokens
@@ -59,9 +61,7 @@ contract BaseTest is FraxTest, Constants.Helper {
         // ======================
 
         // FXBFactory
-        // (iFxbFactory, fxbFactory) = deployFXBFactory();
-        iFxbFactory = new FXBFactory(Constants.Mainnet.FXB_TIMELOCK, frax);
-        fxbFactory = address(iFxbFactory);
+        (iFxbFactory, fxbFactory) = deployFXBFactoryManual({ _owner: owner, _proxyAdmin: proxyAdmin, _token: frax });
 
         // Auction Factory
         (iAuctionFactory, auctionFactory) = deploySlippageAuctionFactory();
@@ -202,7 +202,7 @@ function fxbStorageSnapshot(FXB _iFxb) view returns (FxbStorageSnapshot memory _
 function calculateDeltaFxbStorageSnapshot(
     FxbStorageSnapshot memory _initial,
     FxbStorageSnapshot memory _final
-) view returns (FxbStorageSnapshot memory _delta) {
+) pure returns (FxbStorageSnapshot memory _delta) {
     _delta._address = _initial._address == _final._address ? address(0) : _final._address;
     _delta.totalSupply = stdMath.delta(_initial.totalSupply, _final.totalSupply);
     _delta.fraxSnapshot = calculateDeltaErc20AccountStorageSnapshot(_initial.fraxSnapshot, _final.fraxSnapshot);
@@ -260,7 +260,7 @@ struct DeltaSlippageAuctionStorageSnapshot {
 
 function slippageAuctionStorageSnapshot(
     SlippageAuction _iAuction
-) returns (SlippageAuctionStorageSnapshot memory _snapshot) {
+) view returns (SlippageAuctionStorageSnapshot memory _snapshot) {
     _snapshot.auction = address(_iAuction);
     _snapshot.name = _iAuction.name();
     _snapshot.detailsLength = _iAuction.detailsLength();
@@ -274,7 +274,7 @@ function slippageAuctionStorageSnapshot(
 function calculateDeltaSlippageAuctionStorageSnapshot(
     SlippageAuctionStorageSnapshot memory _initial,
     SlippageAuctionStorageSnapshot memory _final
-) returns (SlippageAuctionStorageSnapshot memory _delta) {
+) pure returns (SlippageAuctionStorageSnapshot memory _delta) {
     _delta.auction = _initial.auction == _final.auction ? address(0) : _final.auction;
     _delta.name = keccak256(abi.encodePacked(_initial.name)) == keccak256(abi.encodePacked(_final.name))
         ? ""
@@ -287,7 +287,7 @@ function calculateDeltaSlippageAuctionStorageSnapshot(
 
 function deltaSlippageAuctionStorageSnapshot(
     SlippageAuctionStorageSnapshot memory _initial
-) returns (DeltaSlippageAuctionStorageSnapshot memory _delta) {
+) view returns (DeltaSlippageAuctionStorageSnapshot memory _delta) {
     _delta.start = _initial;
     _delta.end = slippageAuctionStorageSnapshot(SlippageAuction(_initial.auction));
     _delta.delta = calculateDeltaSlippageAuctionStorageSnapshot(_delta.start, _delta.end);

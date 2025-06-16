@@ -4,6 +4,10 @@ pragma solidity ^0.8.23;
 import "frax-std/FraxTest.sol";
 import "./BaseTest_FXB_LFRAX.t.sol";
 
+interface ILegacyFxbFactory {
+    function timelockAddress() external view returns (address);
+}
+
 contract FXB_LFRAX_Test is BaseTest_FXB_LFRAX {
     using DecimalStringHelper for uint256;
 
@@ -63,7 +67,7 @@ contract FXB_LFRAX_Test is BaseTest_FXB_LFRAX {
         /// BACKGROUND: Contracts are deployed
         super.defaultSetup();
 
-        fxbTimelock = fxbFactory.timelockAddress();
+        fxbTimelock = ILegacyFxbFactory(address(fxbFactory)).timelockAddress();
 
         // Initialize FXS and the SigUtils beforehand
         sigUtils_FXB = new SigUtils(fxb2028.DOMAIN_SEPARATOR());

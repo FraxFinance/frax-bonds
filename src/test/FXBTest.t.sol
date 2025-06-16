@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import "frax-std/FraxTest.sol";
 import "./BaseTest.t.sol";
 import { FxbFactoryHelper } from "./helpers/FxbFactoryHelper.sol";
+import { FraxBeacon } from "src/contracts/FraxBeacon.sol";
 
 contract FXBTest is BaseTest, FxbFactoryHelper {
     address bob;
@@ -28,12 +29,12 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         //==============================================================================
         // Arrange
         //==============================================================================
-        uint256 startOf2025 = 1_735_689_600; // 1-1-2025 00:00:00
-        uint256 startOf2026 = 1_767_225_600; // 1-1-2026 00:00:00
+        uint256 startOf2031 = 1_924_992_000; // January 1, 2031 12:00:00 AM
+        uint256 startOf2032 = 1_956_528_000; // January 1, 2032 12:00:00 AM
 
         // GIVEN: we have existing FXBs
-        (FXB iFxb2025, ) = _fxbFactory_createFxbContract(startOf2025);
-        (FXB iFxb2026, ) = _fxbFactory_createFxbContract(startOf2026);
+        (FXB iFxb2030, ) = _fxbFactory_createFxbContract(startOf2031);
+        (FXB iFxb2031, ) = _fxbFactory_createFxbContract(startOf2032);
 
         //==============================================================================
         // Assert
@@ -42,25 +43,25 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         assertEq({ err: "/// THEN: iFxb.name() incorrect", a: iFxb.name(), b: "FXB20230721" });
         assertEq({ err: "/// THEN: iFxb.symbol() incorrect", a: iFxb.symbol(), b: "FXB20230721" });
 
-        assertEq({ err: "/// THEN: iFxb2025.name() incorrect", a: iFxb2025.name(), b: "FXB20241231" });
-        assertEq({ err: "/// THEN: iFxb2025.symbol() incorrect", a: iFxb2025.symbol(), b: "FXB20241231" });
+        assertEq({ err: "/// THEN: iFxb2030.name() incorrect", a: iFxb2030.name(), b: "FXB20301231" });
+        assertEq({ err: "/// THEN: iFxb2030.symbol() incorrect", a: iFxb2030.symbol(), b: "FXB20301231" });
         assertEq({
-            err: "/// THEN: iFxb2025.MATURITY_TIMESTAMP() incorrect",
-            a: iFxb2025.MATURITY_TIMESTAMP(),
-            b: startOf2025
+            err: "/// THEN: iFxb2030.MATURITY_TIMESTAMP() incorrect",
+            a: iFxb2030.MATURITY_TIMESTAMP(),
+            b: startOf2031
         });
 
-        assertEq({ err: "/// THEN: iFxb2026.name() incorrect", a: iFxb2026.name(), b: "FXB20251231" });
-        assertEq({ err: "/// THEN: iFxb2026.symbol() incorrect", a: iFxb2026.symbol(), b: "FXB20251231" });
+        assertEq({ err: "/// THEN: iFxb2031.name() incorrect", a: iFxb2031.name(), b: "FXB20311231" });
+        assertEq({ err: "/// THEN: iFxb2031.symbol() incorrect", a: iFxb2031.symbol(), b: "FXB20311231" });
         assertEq({
-            err: "/// THEN: iFxb2026.MATURITY_TIMESTAMP() incorrect",
-            a: iFxb2026.MATURITY_TIMESTAMP(),
-            b: startOf2026
+            err: "/// THEN: iFxb2031.MATURITY_TIMESTAMP() incorrect",
+            a: iFxb2031.MATURITY_TIMESTAMP(),
+            b: startOf2032
         });
 
         (uint256 major, uint256 minor, uint256 patch) = iFxb.version();
-        assertEq({ err: "/// THEN: major incorrect", a: major, b: 1 });
-        assertEq({ err: "/// THEN: minor incorrect", a: minor, b: 1 });
+        assertEq({ err: "/// THEN: major incorrect", a: major, b: 2 });
+        assertEq({ err: "/// THEN: minor incorrect", a: minor, b: 0 });
         assertEq({ err: "/// THEN: patch incorrect", a: patch, b: 0 });
     }
 
@@ -85,7 +86,7 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         assertFalse(iFxb.isRedeemable());
     }
 
-    function test_IsRedeemable_BeforeMaturityAsTimelock_succeeds() public {
+    function test_IsRedeemable_BeforeMaturityAsOwner_succeeds() public {
         //==============================================================================
         // Arrange
         //==============================================================================
@@ -103,7 +104,7 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         //==============================================================================
 
         /// THEN: bond is redeemable
-        vm.startPrank(iFxbFactory.timelockAddress());
+        vm.startPrank(iFxbFactory.owner());
         assertTrue(iFxb.isRedeemable());
     }
 
@@ -128,7 +129,7 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         assertTrue(iFxb.isRedeemable());
     }
 
-    function test_TimelockIsRedeemable_AtMaturityAsTimelock_succeeds() public {
+    function test_OwnerIsRedeemable_AtMaturityAsOwner_succeeds() public {
         //==============================================================================
         // Arrange
         //==============================================================================
@@ -146,7 +147,7 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         //==============================================================================
 
         /// THEN: bond is redeemable
-        vm.startPrank(iFxbFactory.timelockAddress());
+        vm.startPrank(iFxbFactory.owner());
         assertTrue(iFxb.isRedeemable());
     }
 
@@ -323,7 +324,7 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         });
     }
 
-    function test_Burn_BeforeMaturityAsTimelock_succeeds() public {
+    function test_Burn_BeforeMaturityAsOwner_succeeds() public {
         //==============================================================================
         // Arrange
         //==============================================================================
@@ -332,33 +333,33 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         vm.startPrank(Constants.Mainnet.OPERATOR_ADDRESS);
         iFrax.approve(fxb, amount);
 
-        /// GIVEN: Operator has minted the bond to the timelock
-        iFxb.mint(iFxbFactory.timelockAddress(), amount);
+        /// GIVEN: Operator has minted the bond to the owner
+        iFxb.mint(iFxbFactory.owner(), amount);
         vm.stopPrank();
 
-        test_IsRedeemable_BeforeMaturityAsTimelock_succeeds();
+        test_IsRedeemable_BeforeMaturityAsOwner_succeeds();
 
         //==============================================================================
         // Act
         //==============================================================================
 
-        // WHEN: the iFxbFactory.timelockAddress() tries to redeem their full balance
-        vm.startPrank(iFxbFactory.timelockAddress());
-        uint256 balanceBefore = iFrax.balanceOf(iFxbFactory.timelockAddress());
-        iFxb.burn(iFxbFactory.timelockAddress(), amount);
+        // WHEN: the iFxbFactory.owner() tries to redeem their full balance
+        vm.startPrank(iFxbFactory.owner());
+        uint256 balanceBefore = iFrax.balanceOf(iFxbFactory.owner());
+        iFxb.burn(iFxbFactory.owner(), amount);
 
         //==============================================================================
         // Assert
         //==============================================================================
 
         assertEq({
-            err: "/// THEN: we expect the iFxbFactory.timelockAddress() to have 0 bond",
-            a: iFxb.balanceOf(iFxbFactory.timelockAddress()),
+            err: "/// THEN: we expect the iFxbFactory.owner() to have 0 bond",
+            a: iFxb.balanceOf(iFxbFactory.owner()),
             b: 0
         });
         assertEq({
-            err: "/// THEN: we expect the iFxbFactory.timelockAddress() to have gained amount",
-            a: iFrax.balanceOf(iFxbFactory.timelockAddress()) - balanceBefore,
+            err: "/// THEN: we expect the iFxbFactory.owner() to have gained amount",
+            a: iFrax.balanceOf(iFxbFactory.owner()) - balanceBefore,
             b: amount
         });
     }
@@ -462,5 +463,37 @@ contract FXBTest is BaseTest, FxbFactoryHelper {
         iFxb.burn({ to: address(0x123), value: 0 });
 
         /// THEN: we expect the function to revert with ZeroAmount()
+    }
+
+    function test_UpgradeBeacon_succeeds() public {
+        //==============================================================================
+        // Arrange
+        //==============================================================================
+
+        /// GIVEN: a bond exists
+        (iFxb, ) = _fxbFactory_createFxbContract(block.timestamp + 30 days);
+
+        //==============================================================================
+        // Act
+        //==============================================================================
+
+        /// WHEN: we upgrade the bond to a new version
+        UpgradedFXB upgradedFxb = new UpgradedFXB();
+        FraxBeacon beacon = FraxBeacon(iFxbFactory.beacon());
+        vm.prank(beacon.owner());
+        beacon.setImplementation(address(upgradedFxb));
+
+        //==============================================================================
+        // Assert
+        //==============================================================================
+
+        /// THEN: we expect the bond to be upgraded
+        assertTrue(UpgradedFXB(address(iFxb)).foo(), "Bond should be upgraded to UpgradedFXB");
+    }
+}
+
+contract UpgradedFXB is FXB {
+    function foo() external pure returns (bool) {
+        return true;
     }
 }

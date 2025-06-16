@@ -11,12 +11,12 @@ contract FXBFactoryTest is BaseTest, FxbFactoryHelper {
         defaultSetup();
 
         // Initial state checks
-        assertEq(iFxbFactory.fxbsLength(), 0, "/// GIVEN: There should be 0 bonds");
-        assertEq(iFxbFactory.FRAX(), Constants.Mainnet.FRAX_ERC20);
+        assertEq(iFxbFactory.fxbsLength(), 4, "/// GIVEN: There should be 4 pre-existing bonds");
+        assertEq(iFxbFactory.token(), Constants.Mainnet.FRAX_ERC20);
 
         (uint256 major, uint256 minor, uint256 patch) = iFxbFactory.version();
-        assertEq({ err: "/// THEN: major incorrect", a: major, b: 1 });
-        assertEq({ err: "/// THEN: minor incorrect", a: minor, b: 1 });
+        assertEq({ err: "/// THEN: major incorrect", a: major, b: 2 });
+        assertEq({ err: "/// THEN: minor incorrect", a: minor, b: 0 });
         assertEq({ err: "/// THEN: patch incorrect", a: patch, b: 0 });
     }
 
@@ -26,8 +26,8 @@ contract FXBFactoryTest is BaseTest, FxbFactoryHelper {
         _fxbFactory_createFxbContract(block.timestamp + 99 days);
 
         /// WHEN: we check the length of fxbs
-        /// THEN: we expect the length to be 2
-        assertEq(iFxbFactory.fxbsLength(), 2, "There should be 2 bonds");
+        /// THEN: we expect the length to be 6
+        assertEq(iFxbFactory.fxbsLength(), 6, "There should be 2 new bonds");
     }
 
     function _createFxbContractAndAssert(uint256 duration) internal {
@@ -93,5 +93,50 @@ contract FXBFactoryTest is BaseTest, FxbFactoryHelper {
         iFxbFactory.createFxbContract(block.timestamp + 90 days);
 
         /// THEN: reverts
+    }
+
+    function test_SetToken_succeeds() public {
+        /// GIVEN: a new token address
+        address newToken = address(0x12345);
+        /// WHEN: we set the new token address
+        startHoax(Constants.Mainnet.FXB_TIMELOCK);
+        iFxbFactory.setToken(newToken);
+        /// THEN: the token address is updated
+        assertEq(iFxbFactory.token(), newToken, "/// THEN: token address not updated");
+    }
+
+    function test_SetToken_CallerNotTimelock_reverts() public {
+        /// GIVEN: a new token address
+        address newToken = address(0x12345);
+        /// WHEN: we try to set the new token address as tester
+        hoax(tester);
+        vm.expectRevert();
+        iFxbFactory.setToken(newToken);
+
+        /// THEN: reverts
+    }
+
+    function test_UpgradeFactory_succeeds() public {
+        /// GIVEN: a new implementation
+        address newImplementation = address(new UpgradedFXBFactory());
+
+        /// WHEN: we upgrade the factory
+        hoax(proxyAdmin);
+        ITransparentUpgradeableProxy(fxbFactory).upgradeToAndCall(newImplementation, "");
+
+        /// THEN: the implementation is updated
+        assertTrue(UpgradedFXBFactory(fxbFactory).foo(), "/// THEN: implementation not updated");
+    }
+}
+
+interface ITransparentUpgradeableProxy {
+    /// @dev See {UUPSUpgradeable-upgradeToAndCall}
+    function upgradeToAndCall(address newImplementation, bytes calldata data) external payable;
+    function changeAdmin(address newAdmin) external;
+}
+
+contract UpgradedFXBFactory is FXBFactory {
+    function foo() external pure returns (bool) {
+        return true;
     }
 }

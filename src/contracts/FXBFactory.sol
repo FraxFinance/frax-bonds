@@ -15,24 +15,28 @@ pragma solidity ^0.8.23;
 // Frax Finance: https://github.com/FraxFinance
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
-import { Timelock2Step } from "frax-std/access-control/v2/Timelock2Step.sol";
+import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import { BokkyPooBahsDateTimeLibrary as DateTimeLibrary } from "./utils/BokkyPooBahsDateTimeLibrary.sol";
 import { FXB } from "./FXB.sol";
+import { FraxBeacon } from "./FraxBeacon.sol";
+import { FraxBeaconProxy } from "./FraxBeaconProxy.sol";
 
 /// @title FXBFactory
-/// @notice  Deploys FXB ERC20 contracts
+/// @notice Deploys FXB ERC20 contracts
 /// @dev "FXB" and "bond" are interchangeable
 /// @dev https://github.com/FraxFinance/frax-bonds
-contract FXBFactory is Timelock2Step {
+contract FXBFactory is Ownable2StepUpgradeable {
     using Strings for uint256;
 
     // =============================================================================================
     // Storage
     // =============================================================================================
 
-    // Core
-    /// @notice The Frax token contract
-    address public immutable FRAX;
+    /// @notice Address of the beacon which contains the FXB implementation address
+    address public beacon;
+
+    /// @notice Address of the token backing the FXB
+    address public token;
 
     /// @notice Array of bond addresses
     address[] public fxbs;
@@ -44,14 +48,45 @@ contract FXBFactory is Timelock2Step {
     mapping(uint256 _timestamp => bool _isFxb) public isTimestampFxb;
 
     // =============================================================================================
-    // Constructor
+    // Initialize
     // =============================================================================================
 
+    constructor() {
+        _disableInitializers();
+    }
+
     /// @notice Constructor
-    /// @param _timelock The owner of this contract
-    /// @param _frax The address of the FRAX token
-    constructor(address _timelock, address _frax) Timelock2Step(_timelock) {
-        FRAX = _frax;
+    /// @param _owner The owner of this contract
+    /// @param _token The address of the redeemable token (e.g., legacy FRAX)
+    function initialize(address _owner, address _token) external initializer {
+        address implementation = address(new FXB());
+        beacon = address(new FraxBeacon({ _owner: _owner, _initialImplementation: implementation }));
+
+        token = _token;
+
+        // Fraxtal-sourced: can be redeemed for the underlying token on Fraxtal
+        // 20251231
+        isFxb[0xacA9A33698cF96413A40A4eB9E87906ff40fC6CA] = true;
+        fxbs.push(0xacA9A33698cF96413A40A4eB9E87906ff40fC6CA);
+        isTimestampFxb[1_767_225_600] = true;
+
+        // 20271231
+        isFxb[0x6c9f4E6089c8890AfEE2bcBA364C2712f88fA818] = true;
+        fxbs.push(0x6c9f4E6089c8890AfEE2bcBA364C2712f88fA818);
+        isTimestampFxb[1_830_297_600] = true;
+
+        // 20291231
+        isFxb[0xF1e2b576aF4C6a7eE966b14C810b772391e92153] = true;
+        fxbs.push(0xF1e2b576aF4C6a7eE966b14C810b772391e92153);
+        isTimestampFxb[1_893_456_000] = true;
+
+        // 20551231
+        isFxb[0xc38173D34afaEA88Bc482813B3CD267bc8A1EA83] = true;
+        fxbs.push(0xc38173D34afaEA88Bc482813B3CD267bc8A1EA83);
+        isTimestampFxb[2_713_910_400] = true;
+
+        __Ownable2Step_init();
+        _transferOwnership(_owner);
     }
 
     /// @notice Returns the semantic version of this contract
@@ -59,7 +94,7 @@ contract FXBFactory is Timelock2Step {
     /// @return _minor The minor version
     /// @return _patch The patch version
     function version() external pure returns (uint256 _major, uint256 _minor, uint256 _patch) {
-        return (1, 1, 0);
+        return (2, 0, 0);
     }
 
     // =============================================================================================
@@ -109,9 +144,7 @@ contract FXBFactory is Timelock2Step {
     /// @param _maturityTimestamp Date the bond will mature and be redeemable
     /// @return fxb The address of the new bond
     /// @return id The id of the new bond
-    function createFxbContract(uint256 _maturityTimestamp) external returns (address fxb, uint256 id) {
-        _requireSenderIsTimelock();
-
+    function createFxbContract(uint256 _maturityTimestamp) external onlyOwner returns (address fxb, uint256 id) {
         // Round the timestamp down to 00:00 UTC
         uint256 _coercedMaturityTimestamp = (_maturityTimestamp / 1 days) * 1 days;
 
@@ -135,7 +168,8 @@ contract FXBFactory is Timelock2Step {
         string memory metadata = _generateFxbMetadata({ _maturityTimestamp: _coercedMaturityTimestampDayBefore });
 
         // Create the new contract
-        fxb = address(new FXB({ _metadata: metadata, _frax: FRAX, _maturityTimestamp: _coercedMaturityTimestamp }));
+        bytes memory data = abi.encodeCall(FXB.initialize, (metadata, token, _coercedMaturityTimestamp));
+        fxb = address(new FraxBeaconProxy({ beacon: beacon, data: data }));
 
         // Add the new bond address to the array and update the mapping
         fxbs.push(fxb);
@@ -144,7 +178,19 @@ contract FXBFactory is Timelock2Step {
         // Mark the maturity timestamp as having a bond associated with it
         isTimestampFxb[_coercedMaturityTimestamp] = true;
 
-        emit BondCreated({ fxb: fxb, id: id, metadata: metadata, maturityTimestamp: _coercedMaturityTimestamp });
+        emit BondCreated({
+            fxb: fxb,
+            id: id,
+            metadata: metadata,
+            token: token,
+            maturityTimestamp: _coercedMaturityTimestamp
+        });
+    }
+
+    /// @notice Sets the address of the redeemable token (e.g., legacy FRAX)
+    /// @param _token The address of the redeemable token
+    function setToken(address _token) external onlyOwner {
+        token = _token;
     }
 
     // ==============================================================================
@@ -155,8 +201,9 @@ contract FXBFactory is Timelock2Step {
     /// @param fxb Address of the bond
     /// @param id The ID of the bond
     /// @param metadata Name and symbol of the bond
+    /// @param token Address of the redeemable token (e.g., legacy FRAX)
     /// @param maturityTimestamp Date the bond will mature
-    event BondCreated(address fxb, uint256 id, string metadata, uint256 maturityTimestamp);
+    event BondCreated(address fxb, uint256 id, string metadata, address token, uint256 maturityTimestamp);
 
     // ==============================================================================
     // Errors

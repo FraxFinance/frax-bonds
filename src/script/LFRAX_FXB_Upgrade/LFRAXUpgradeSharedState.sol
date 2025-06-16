@@ -6,6 +6,7 @@ import "frax-std/FraxTest.sol";
 import { DecimalStringHelper } from "src/test/helpers/DecimalStringHelper.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { FXB } from "src/contracts/FXB.sol";
 import { FXBFactory } from "src/contracts/FXBFactory.sol";
 import { FXB_LFRAX } from "src/contracts/FXB_LFRAX.sol";

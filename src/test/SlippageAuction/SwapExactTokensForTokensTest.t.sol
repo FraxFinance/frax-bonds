@@ -159,9 +159,6 @@ contract SwapExactTokensForTokensTest is SwapHelper {
         // Act
         //==============================================================================
 
-        SlippageAuctionStorageSnapshot memory initial_auctionSnapshot = slippageAuctionStorageSnapshot(iAuction);
-        AccountStorageSnapshot memory initial_buyerSnapshot = accountStorageSnapshot(buyer1, iFrax, iFxb);
-
         /// WHEN: buyer attempts to swap for more tokens than they've given
         startHoax(buyer1);
         iFrax.approve(auction, amountInOneLess);
