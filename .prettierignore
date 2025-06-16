@@ -3,6 +3,7 @@ out
 broadcast
 cache
 artifacts
+lib
 
 # files
 *.env

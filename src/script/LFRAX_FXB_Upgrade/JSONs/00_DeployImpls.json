@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "chainId": 1,
+  "createdAt": 1747620159,
+  "meta": {
+    "name": "00_DeployImpls",
+    "description": "",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0xc4eb45d80dc1f079045e75d5d55de8ed1c1090e6",
+    "createdFromOwnerAddress": "",
+    "checksum": "<CHECKSUM>"
+  },
+  "transactions": [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]
+}

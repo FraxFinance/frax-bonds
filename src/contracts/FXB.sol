@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: ISC
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.23;
 
 // ====================================================================
 // |     ______                   _______                             |
@@ -11,31 +10,36 @@ pragma solidity ^0.8.19;
 // ====================================================================
 // =============================== FXB ================================
 // ====================================================================
+// Frax Bond token (FXB) ERC20 contract. A FXB is sold at a discount and redeemed 1-to-1 for collateral token at a later date.
 // Frax Finance: https://github.com/FraxFinance
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import { IFrax } from "./interfaces/IFrax.sol";
-import { FXBFactory } from "./FXBFactory.sol";
+import { ERC20Upgradeable, IERC20 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { ERC20PermitUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title FXB
-/// @notice  The FXB token can be redeemed for 1 FRAX at a later date. Created via a factory contract.
-contract FXB is ERC20, ERC20Permit {
+/// @notice The FXB token can be redeemed for an equivalent collateral token at a later date. Created via factory.
+/// @dev https://github.com/FraxFinance/frax-bonds
+contract FXB is ERC20Upgradeable, ERC20PermitUpgradeable {
     // =============================================================================================
     // Storage
     // =============================================================================================
 
-    /// @notice Factory contract for generating FXBs
-    FXBFactory public immutable FXB_FACTORY;
+    /// @notice Address of the factory to create the FXB
+    address public factory;
 
-    /// @notice The Frax token contract
-    IFrax public immutable FRAX;
+    /// @notice Token redeemable upon maturity
+    /// @dev previously frxUsd in v1.1.0
+    IERC20 public token;
 
     /// @notice Timestamp of bond maturity
-    uint256 public immutable MATURITY_TIMESTAMP;
+    uint256 public MATURITY_TIMESTAMP;
+
+    /// @notice Total amount of FXB minted
+    uint256 public totalFxbMinted;
 
     /// @notice Total amount of FXB redeemed
-    uint256 public totalFXBRedeemed;
+    uint256 public totalFxbRedeemed;
 
     // =============================================================================================
     // Structs
@@ -52,24 +56,23 @@ contract FXB is ERC20, ERC20Permit {
     }
 
     // =============================================================================================
-    // Constructor
+    // Initalization
     // =============================================================================================
 
-    /// @notice Called by the factory
-    /// @param _symbol The symbol of the bond
-    /// @param _name The name of the bond
+    /// @notice Initialize the FXB contract
+    /// @dev Called by the factory
+    /// @param _metadata The name and symbol of the bond
+    /// @param _token The address of the redeemable token
     /// @param _maturityTimestamp Timestamp the bond will mature and be redeemable
-    constructor(
-        address _fraxErc20,
-        string memory _symbol,
-        string memory _name,
-        uint256 _maturityTimestamp
-    ) ERC20(_symbol, _name) ERC20Permit(_symbol) {
-        // Set the FRAX address
-        FRAX = IFrax(_fraxErc20);
+    function initialize(string memory _metadata, address _token, uint256 _maturityTimestamp) external initializer {
+        // Initialize the ERC20 and ERC20Permit with the metadata
+        __ERC20_init(_metadata, _metadata);
+        __ERC20Permit_init(_metadata);
 
-        // Set the factory
-        FXB_FACTORY = FXBFactory(msg.sender);
+        // Set the factory address
+        factory = msg.sender;
+
+        token = IERC20(_token);
 
         // Set the maturity timestamp
         MATURITY_TIMESTAMP = _maturityTimestamp;
@@ -79,6 +82,11 @@ contract FXB is ERC20, ERC20Permit {
     // View functions
     // =============================================================================================
 
+    /// @dev supports legacy (v1.1.0) interface
+    function FRAX() external view returns (IERC20) {
+        return token;
+    }
+
     /// @notice Returns summary information about the bond
     /// @return BondInfo Summary of the bond
     function bondInfo() external view returns (BondInfo memory) {
@@ -86,9 +94,18 @@ contract FXB is ERC20, ERC20Permit {
     }
 
     /// @notice Returns a boolean representing whether a bond can be redeemed
+    /// @dev Frax team msig has rights to burn FXB before maturity
     /// @return _isRedeemable If the bond is redeemable
     function isRedeemable() public view returns (bool _isRedeemable) {
-        _isRedeemable = (block.timestamp >= MATURITY_TIMESTAMP);
+        _isRedeemable = msg.sender == Ownable(factory).owner() || (block.timestamp >= MATURITY_TIMESTAMP);
+    }
+
+    /// @notice Returns the semantic version of this contract
+    /// @return _major The major version
+    /// @return _minor The minor version
+    /// @return _patch The patch version
+    function version() external pure returns (uint256 _major, uint256 _minor, uint256 _patch) {
+        return (2, 0, 0);
     }
 
     // =============================================================================================
@@ -96,33 +113,44 @@ contract FXB is ERC20, ERC20Permit {
     // =============================================================================================
 
     /// @notice Mints a specified amount of tokens to the account, requires caller to approve on the FRAX contract in an amount equal to the minted amount
-    /// @param _to The account to receive minted tokens
-    /// @param _amount The amount of the token to mint
-    function mint(address _to, uint256 _amount) public {
+    /// @dev Supports OZ 5.0 interfacing with named variable arguments
+    /// @param account The account to receive minted tokens
+    /// @param value The amount of the token to mint
+    function mint(address account, uint256 value) external {
         // NOTE: Allow minting after expiry
 
+        // Make sure minting an amount
+        if (value == 0) revert ZeroAmount();
+
+        // Effects: update mint tracking
+        totalFxbMinted += value;
+
         // Effects: Give the FXB to the recipient
-        _mint({ account: _to, amount: _amount });
+        _mint({ account: account, value: value });
 
         // Interactions: Take 1-to-1 FRAX from the user
-        FRAX.transferFrom({ sender: msg.sender, recipient: address(this), amount: _amount });
+        token.transferFrom(msg.sender, address(this), value);
     }
 
-    /// @notice Redeems FXB 1-to-1 for FRAX
-    /// @param _recipient Recipient of the FRAX
-    /// @param _redeemAmount Amount to redeem
-    function burn(address _recipient, uint256 _redeemAmount) public {
-        // Make sure the bond has matured
+    /// @notice Redeems FXB 1-to-1 for token
+    /// @dev Supports OZ 5.0 interfacing with named variable arguments
+    /// @param to Recipient of redeemed token
+    /// @param value Amount to redeem
+    function burn(address to, uint256 value) external {
+        // Require bond has matured or owner is burning
         if (!isRedeemable()) revert BondNotRedeemable();
 
+        // Make sure you burning a nonzero amount
+        if (value == 0) revert ZeroAmount();
+
         // Effects: Update redeem tracking
-        totalFXBRedeemed += _redeemAmount;
+        totalFxbRedeemed += value;
 
         // Effects: Burn the FXB from the user
-        _burn({ account: msg.sender, amount: _redeemAmount });
+        _burn({ account: msg.sender, value: value });
 
-        // Interactions: Give FRAX to the recipient
-        FRAX.transfer({ recipient: _recipient, amount: _redeemAmount });
+        // Interactions: Give token to the recipient
+        token.transfer(to, value);
     }
 
     // ==============================================================================
@@ -131,4 +159,7 @@ contract FXB is ERC20, ERC20Permit {
 
     /// @notice Thrown if the bond hasn't matured yet, or redeeming is paused
     error BondNotRedeemable();
+
+    /// @notice Thrown if attempting to mint / burn zero tokens
+    error ZeroAmount();
 }
