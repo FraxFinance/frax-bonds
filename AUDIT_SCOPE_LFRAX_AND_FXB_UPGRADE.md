@@ -11,8 +11,8 @@ Receive: https://fraxscan.com/tx/0x6ee4827099d4df93a74fba4f046e554520e636c332209
 
 #### Fraxtal -> ETH
 Send: https://fraxscan.com/tx/0x9f350efe74a46ba65fb70353b7958e7c05d434347ef537fd8c797dd783193e76
-Prove: ???
-Receive: ???
+Prove: https://etherscan.io/tx/0x7dda3ed0f2580113545cb45aa417db13039f2e235bf9840e451a26d6ddfdf230
+Receive: https://etherscan.io/tx/0x526c5bf3c71a2b2d6c737c2b54e1234518d2714e0b19ff045df8b1c7eea1522a
 
 ## FXB Upgrade
 FXB (Frax Bonds) are zero-coupon bonds auctioned at less than 1 stablecoin and are redeemable for 1 stablecoin at maturity. As part of the current contract design, each FXB contract has 1:1 stablecoins "pre-loaded" in the contract, essentially sitting there doing nothing. For LFRAX, this is not really an issue for accounting purposes. However, for frxUSD, it is an issue because, per current GENIUS Act draft stipulations, we cannot have unbacked stablecoins. On Ethereum (example [FXB_4_DEC312026](https://etherscan.io/token/0x76237BCfDbe8e06FB774663add96216961df4ff3)), LFRAX is in each bond contract, but on Fraxtal, it is frxUSD instead (it was LFRAX originally, but we did a token upgrade converting LFRAX to frxUSD on Fraxtal only, not realizing this problem that would occur later on).
