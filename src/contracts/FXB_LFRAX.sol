@@ -67,7 +67,7 @@ contract FXB_LFRAX is Initializable, ERC20, IERC20Permit, IERC5267, EIP712Storag
     /// @notice Timestamp of bond maturity
     uint256 public MATURITY_TIMESTAMP;
 
-    // EIP721
+    // EIP712
     // =======================================
     bytes32 private constant _TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");

@@ -56,8 +56,12 @@ contract FXB is ERC20Upgradeable, ERC20PermitUpgradeable {
     }
 
     // =============================================================================================
-    // Initalization
+    // Initalization & Constructor
     // =============================================================================================
+
+    constructor() {
+        _disableInitializers();
+    }
 
     /// @notice Initialize the FXB contract
     /// @dev Called by the factory

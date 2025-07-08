@@ -209,9 +209,6 @@ contract FXBFactory is Ownable2StepUpgradeable {
     // Errors
     // ==============================================================================
 
-    /// @notice Thrown when an invalid month number is passed
-    error InvalidMonthNumber();
-
     /// @notice Thrown when a bond with the same maturity already exists
     error BondMaturityAlreadyExists();
 
