@@ -56,5 +56,5 @@ contract FraxBeacon is IBeacon, Ownable2Step {
      * @param oldImplementation The address of the old implementation
      * @param newImplementation The address of the new implementation
      */
-    event FraxBeaconImplementationUpdated(address oldImplementation, address newImplementation);
+    event FraxBeaconImplementationUpdated(address indexed oldImplementation, address indexed newImplementation);
 }
