@@ -203,7 +203,13 @@ contract FXBFactory is Ownable2StepUpgradeable {
     /// @param metadata Name and symbol of the bond
     /// @param token Address of the redeemable token (e.g., legacy FRAX)
     /// @param maturityTimestamp Date the bond will mature
-    event BondCreated(address fxb, uint256 id, string metadata, address token, uint256 maturityTimestamp);
+    event BondCreated(
+        address indexed fxb,
+        uint256 indexed id,
+        string metadata,
+        address token,
+        uint256 maturityTimestamp
+    );
 
     // ==============================================================================
     // Errors
